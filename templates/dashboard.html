@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Tracking Dashboard</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f9; color: #333; }
+        h1 { color: #444; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        thead { background-color: #007bff; color: white; }
+        tbody tr:nth-of-type(even) { background-color: #f9f9f9; }
+        tbody tr:hover { background-color: #f1f1f1; }
+        .no-opens { color: #999; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>Email Tracking Dashboard</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Recipient</th>
+                <th>Subject</th>
+                <th>Sent At (UTC)</th>
+                <th>Open Events (UTC)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for email in emails %}
+            <tr>
+                <td>{{ email.recipient }}</td>
+                <td>{{ email.subject }}</td>
+                <td>{{ email.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    {% if email.open_events %}
+                        {% for event in email.open_events %}
+                            - {{ event.opened_at.strftime('%Y-%m-%d %H:%M:%S') }} (IP: {{ event.ip_address }})<br>
+                        {% endfor %}
+                    {% else %}
+                        <span class="no-opens">Not opened yet</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

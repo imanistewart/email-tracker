@@ -2,7 +2,7 @@ import os
 import uuid
 import logging
 from flask import Flask, request, send_file, jsonify
-from PIL import Image
+from flask import render_template
 import io
 from database import get_db_connection, log_open_event
 
@@ -12,22 +12,48 @@ app = Flask(__name__)
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Pixel Generation ---
-def create_pixel():
-    """Creates a 1x1 transparent GIF in memory."""
-    image = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
-    buffer = io.BytesIO()
-    image.save(buffer, 'GIF')
-    buffer.seek(0)
-    return buffer
-
-PIXEL_BUFFER = create_pixel()
+# --- Create a 1x1 transparent GIF pixel in memory on startup ---
+PIXEL_BYTES = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+PIXEL_BUFFER = io.BytesIO(PIXEL_BYTES)
 
 # --- API Routes ---
 
 @app.route('/')
 def home():
     return "Email Tracking Server is running."
+
+@app.route('/dashboard')
+def dashboard():
+    """Displays a dashboard of tracked emails and their open events."""
+    conn = get_db_connection()
+    
+    # Query to get all emails and their associated open events
+    query = """
+    SELECT
+        t.tracking_id, t.recipient, t.subject, t.sent_at,
+        o.opened_at, o.ip_address
+    FROM tracked_emails t
+    LEFT JOIN open_events o ON t.tracking_id = o.tracking_id
+    ORDER BY t.sent_at DESC, o.opened_at ASC;
+    """
+    rows = conn.execute(query).fetchall()
+    conn.close()
+
+    # Process the data to group open events by email
+    emails = {}
+    for row in rows:
+        tid = row['tracking_id']
+        if tid not in emails:
+            emails[tid] = {
+                'recipient': row['recipient'],
+                'subject': row['subject'],
+                'sent_at': row['sent_at'],
+                'open_events': []
+            }
+        if row['opened_at']:
+            emails[tid]['open_events'].append({'opened_at': row['opened_at'], 'ip_address': row['ip_address']})
+
+    return render_template('dashboard.html', emails=emails.values())
 
 @app.route('/register', methods=['POST'])
 def register_email():

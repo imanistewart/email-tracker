@@ -9,10 +9,17 @@ from datetime import datetime
 DATA_DIR = os.environ.get('RENDER_DATA_DIR', '.')
 DATABASE_FILE = os.path.join(DATA_DIR, "tracker.db")
 
+# Register a converter to automatically parse TIMESTAMP columns into datetime objects.
+def _convert_timestamp(val):
+    """Convert ISO 8601 string to datetime object."""
+    return datetime.strptime(val.decode('utf-8'), '%Y-%m-%d %H:%M:%S')
+
+sqlite3.register_converter("timestamp", _convert_timestamp)
 
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
-    conn = sqlite3.connect(DATABASE_FILE)
+    # Use detect_types to enable the registered converter
+    conn = sqlite3.connect(DATABASE_FILE, detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
     return conn
 
