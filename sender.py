@@ -4,6 +4,7 @@ import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables from a .env file for local development
 load_dotenv()
@@ -40,9 +41,15 @@ def send_tracked_email(recipient_email, subject, body_html):
         print(f"Error: Could not register email with tracking server: {e}")
         return
 
-    # 2. Create the tracking pixel HTML and add it to the email body
-    tracking_pixel_html = f'<img src="{tracking_pixel_url}" width="1" height="1" alt="" border="0" style="display:none;"/>'
-    full_html = body_html + tracking_pixel_html
+    # 2. Create the opt-in link and format the email body
+    # The registration endpoint returns a URL like ".../track/<id>"
+    # We'll change it to point to our new confirmation endpoint.
+    confirmation_url = tracking_pixel_url.replace("/track/", "/confirm-open/")
+    print(f"Using confirmation URL: {confirmation_url}")
+    
+    teddy_image_url = "https://emerald-urban-meadowlark-587.mypinata.cloud/ipfs/bafybeigcdlvkdnitzpl2xbujtzwfjaxsgl6wxqx4afoaclperzdbqv4glq"
+    opt_in_link_html = f'<a href="{confirmation_url}" title="Click Teddy to confirm!"><img src="{teddy_image_url}" alt="A pixel art teddy bear" width="150" style="border:0; cursor:pointer;"></a>'
+    full_html = body_html.format(opt_in_link=opt_in_link_html)
 
     # 3. Construct and send the email message
     msg = MIMEMultipart('alternative')
@@ -63,13 +70,26 @@ def send_tracked_email(recipient_email, subject, body_html):
 if __name__ == '__main__':
     # --- Example Usage ---
     recipient = "imanistewart@gmail.com" # CHANGE THIS
-    email_subject = "A Tracked Message from the Cloud!"
-    email_body = """
-    <h1>Hello from a deployed tracking service!</h1>
-    <p>This email's 'open' event is being tracked by a server hosted on the web.</p>
+
+    # Add a timestamp to the subject and body to ensure each email is unique.
+    # This prevents email clients from nesting them in the same conversation thread.
+    now = datetime.now()
+    timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    email_subject = f"A Special Delivery For You! [{timestamp_str}]"
+    # Use a placeholder for the link, which will be filled in by the function
+    email_body_template = f"""
+    <div style="text-align: center; font-family: sans-serif; color: #333;">
+        <h1>A Special Delivery Has Arrived!</h1>
+        <p>This message was sent at {timestamp_str}.</p>
+        <p>To confirm you've received this special delivery, please give Teddy a click!</p>
+        <div style="margin-top: 25px;">
+            {{opt_in_link}}
+        </div>
+    </div>
     """
 
     if recipient == "recipient_email@example.com":
         print("!!! PLEASE CHANGE THE 'recipient' VARIABLE IN sender.py BEFORE RUNNING !!!")
     else:
-        send_tracked_email(recipient, email_subject, email_body)
+        send_tracked_email(recipient, email_subject, email_body_template)

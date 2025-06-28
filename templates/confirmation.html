@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            padding: 3em 1em;
+            background-color: #e0f7fa; /* Light cyan background */
+            color: #37474f; /* Dark slate grey text */
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 2em;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: inline-block;
+            max-width: 400px;
+        }
+        h1 {
+            color: #00796b; /* Cheerful teal */
+            margin-top: 0.5em;
+        }
+        img {
+            width: 120px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://emerald-urban-meadowlark-587.mypinata.cloud/ipfs/bafybeigcdlvkdnitzpl2xbujtzwfjaxsgl6wxqx4afoaclperzdbqv4glq" alt="A pixel art teddy bear">
+        <h1>Thank You!</h1>
+        <p>Your confirmation has been recorded.</p>
+        <p><small>You can now close this window.</small></p>
+    </div>
+    
+    <!-- Fun confetti effect! -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <script>
+        // Trigger confetti on page load
+        confetti({
+            particleCount: 150,
+            spread: 90,
+            origin: { y: 0.6 }
+        });
+    </script>
+
+</body>
+</html>

@@ -2,6 +2,7 @@ import os
 import uuid
 import logging
 from flask import Flask, request, send_file, jsonify
+import sqlite3
 from flask import render_template
 import io
 from database import get_db_connection, log_open_event
@@ -70,13 +71,11 @@ def register_email():
     subject = data['subject']
 
     try:
-        conn = get_db_connection()
-        conn.execute(
-            "INSERT INTO tracked_emails (tracking_id, recipient, subject) VALUES (?, ?, ?)",
-            (tracking_id, recipient, subject)
-        )
-        conn.commit()
-        conn.close()
+        with get_db_connection() as conn:
+            conn.execute(
+                "INSERT INTO tracked_emails (tracking_id, recipient, subject) VALUES (?, ?, ?)",
+                (tracking_id, recipient, subject)
+            )
         logging.info(f"Registered email for {recipient} with ID: {tracking_id}")
 
         # The base URL should be configured for your deployment environment
@@ -87,7 +86,7 @@ def register_email():
             "tracking_id": tracking_id,
             "tracking_url": tracking_url
         }), 201
-    except Exception as e:
+    except sqlite3.Error as e:
         logging.error(f"Database error on registration: {e}")
         return jsonify({"error": "Could not register email"}), 500
 
@@ -98,24 +97,87 @@ def track_open(tracking_id):
     This is the tracking endpoint. It gets hit when the email is opened.
     """
     try:
+        logging.info(f"PIXEL_ACCESS: Received request for tracking ID {tracking_id}")
         # Log the open event
         ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
         user_agent = request.headers.get('User-Agent', 'Unknown')
         
         log_open_event(tracking_id, ip_address, user_agent)
-        logging.info(f"PIXEL_ACCESS: Tracking ID {tracking_id} from IP {ip_address}")
 
+    except sqlite3.Error as e:
+        # Catch specific database errors to provide more insight
+        logging.error(f"DATABASE_ERROR during open logging for {tracking_id}: {e}")
     except Exception as e:
         # Fail silently to ensure the pixel is always served
-        logging.error(f"Error logging open for {tracking_id}: {e}")
+        logging.error(f"UNEXPECTED_ERROR during open logging for {tracking_id}: {e}")
 
-    # Always serve the 1x1 transparent pixel
-    return send_file(
+    # Reset the buffer's pointer to the beginning to allow it to be re-read
+    PIXEL_BUFFER.seek(0)
+
+    # Create a response object from send_file to manually set headers.
+    # This is more compatible with older versions of Flask that don't
+    # support the 'headers' keyword argument in send_file.
+    response = send_file(
         PIXEL_BUFFER,
-        mimetype='image/gif',
-        # Tell clients and proxies not to cache the pixel
-        headers={'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0'}
+        mimetype='image/gif'
     )
+    
+    # Tell clients and proxies not to cache the pixel
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
+
+@app.route('/track.css/<tracking_id>')
+def track_open_css(tracking_id):
+    """
+    CSS-based tracking endpoint. It gets hit when an email client
+    tries to import the tracking stylesheet.
+    """
+    try:
+        logging.info(f"CSS_ACCESS: Received request for tracking ID {tracking_id}")
+        # Log the open event, same as the pixel tracker
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        
+        log_open_event(tracking_id, ip_address, user_agent)
+
+    except sqlite3.Error as e:
+        logging.error(f"DATABASE_ERROR during CSS open logging for {tracking_id}: {e}")
+    except Exception as e:
+        logging.error(f"UNEXPECTED_ERROR during CSS open logging for {tracking_id}: {e}")
+
+    # Return a minimal, valid CSS response
+    css_response = "/* CSS Tracker */"
+    response = app.make_response(css_response)
+    response.headers['Content-Type'] = 'text/css'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+@app.route('/confirm-open/<tracking_id>')
+def track_open_link_click(tracking_id):
+    """
+    User-activated tracking endpoint. This is hit when a user clicks
+    the confirmation link in the email.
+    """
+    try:
+        logging.info(f"LINK_CLICK: Received request for tracking ID {tracking_id}")
+        # Log the open event, same as the other trackers
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        
+        log_open_event(tracking_id, ip_address, user_agent)
+
+    except sqlite3.Error as e:
+        logging.error(f"DATABASE_ERROR during link click logging for {tracking_id}: {e}")
+    except Exception as e:
+        logging.error(f"UNEXPECTED_ERROR during link click logging for {tracking_id}: {e}")
+
+    # Show the user a simple "thank you" page.
+    return render_template('confirmation.html')
 
 if __name__ == '__main__':
     # This block is for local development only.

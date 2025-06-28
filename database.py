@@ -21,6 +21,8 @@ def get_db_connection():
     # Use detect_types to enable the registered converter
     conn = sqlite3.connect(DATABASE_FILE, detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
+    # Enforce foreign key constraints, which is off by default in sqlite3
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 def init_db():
@@ -56,10 +58,11 @@ def init_db():
 
 def log_open_event(tracking_id, ip_address, user_agent):
     """Logs an email open event to the database."""
-    conn = get_db_connection()
-    conn.execute(
-        "INSERT INTO open_events (tracking_id, ip_address, user_agent) VALUES (?, ?, ?)",
-        (tracking_id, ip_address, user_agent)
-    )
-    conn.commit()
-    conn.close()
+    sql = "INSERT INTO open_events (tracking_id, ip_address, user_agent) VALUES (?, ?, ?)"
+    try:
+        # Use a 'with' statement to ensure the transaction is automatically committed or rolled back.
+        with get_db_connection() as conn:
+            conn.execute(sql, (tracking_id, ip_address, user_agent))
+    except sqlite3.Error as e:
+        # Log the specific database error for better debugging
+        logging.error(f"Database error in log_open_event for tracking_id {tracking_id}: {e}")
