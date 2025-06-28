@@ -1,8 +1,14 @@
+import os
 import sqlite3
 import logging
 from datetime import datetime
 
-DATABASE_FILE = "tracker.db"
+# On Render, we'll store the database on a persistent disk.
+# We'll use an environment variable to define the path.
+# For local development, it will default to the current directory.
+DATA_DIR = os.environ.get('RENDER_DATA_DIR', '.')
+DATABASE_FILE = os.path.join(DATA_DIR, "tracker.db")
+
 
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
